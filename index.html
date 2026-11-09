@@ -100,6 +100,9 @@
             <span class="small" id="verdict-share"></span>
           </div>
         </div>
+        <div class="climb">
+          <canvas id="climb-chart" class="climb-chart" aria-label="Courbe de montée de l'avion pour cette réponse" role="img"></canvas>
+        </div>
         <div id="meter-block" class="screen" style="gap:4px">
           <div class="meter"><i id="meter-pin" style="left:50%"></i></div>
           <div class="meter-labels"><span>Banale</span><span>Pépite</span></div>
@@ -125,6 +128,9 @@
           <p class="end-alt" id="end-alt">0 m</p>
           <p class="end-layer" id="end-layer">Troposphère</p>
           <p class="muted" id="end-next"></p>
+        </div>
+        <div class="climb">
+          <canvas id="flight-chart" class="climb-chart tall" aria-label="Profil de vol complet, question par question" role="img"></canvas>
         </div>
         <ol class="recap" id="recap"></ol>
         <div class="share-box" id="share-box"></div>
@@ -192,6 +198,7 @@
 <script src="data/10-corps-quotidien.js"></script>
 <script src="data/dict.js"></script>
 <script src="sky.js"></script>
+<script src="chart.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

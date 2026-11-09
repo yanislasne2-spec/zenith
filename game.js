@@ -310,8 +310,9 @@
     game.answered = true;
     stopTimer();
     const a = idx >= 0 ? q.answers[idx] : null;
-    const gain = a ? Math.round(baseGain(a.rarity) * mult()) : 0;
-    const pick = { q: q.id, input: input || "", idx, gain, reason: reason || (a ? "ok" : "wrong") };
+    const m = mult();
+    const gain = a ? Math.round(baseGain(a.rarity) * m) : 0;
+    const pick = { q: q.id, input: input || "", idx, gain, mult: m, reason: reason || (a ? "ok" : "wrong") };
     game.picks.push(pick);
     game.alt += gain;
     let refuel = false;
@@ -364,6 +365,13 @@
     $("reveal-note").textContent = a && a.rank === 0 ? "C'est la réponse la plus évidente. La prochaine fois, ose plus rare !" : "";
     renderHud();
     show("reveal");
+    // Courbe de montée : plus la réponse est rare, plus l'avion grimpe haut
+    const pm = pick.mult || 1;
+    Charts.climb($("climb-chart"), {
+      gain: pick.gain, max: MAX_GAIN * pm, low: MIN_GAIN * pm,
+      tier: a ? tierOf(a.rarity) : -1,
+      onCount: a ? (shown, p) => { $("verdict-gain").textContent = "+" + Alt.fmt(p >= 1 ? pick.gain : shown); } : null
+    });
     setTimeout(() => $("btn-next").focus({ preventScroll: true }), 30);
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -400,6 +408,10 @@
     $("btn-endless").textContent = g.mode === "endless" ? "Redécoller" : "Vol infini";
     renderHud();
     show("end");
+    Charts.flight($("flight-chart"), g.picks.map((p) => {
+      const q = prep(QBY[p.q]);
+      return { gain: p.gain, tier: p.idx >= 0 ? tierOf(q.answers[p.idx].rarity) : -1 };
+    }));
   }
 
   function shareText(g) {
