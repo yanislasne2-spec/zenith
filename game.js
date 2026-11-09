@@ -50,11 +50,42 @@
   THEMES.forEach((t) => t.q.forEach((q, i) => QUESTIONS.push({ id: t.id + ":" + i, theme: t, text: q[0], raw: q[1] })));
   const QBY = Object.fromEntries(QUESTIONS.map((q) => [q.id, q]));
 
+  // Réponses supplémentaires (data/extra-*.js), ajoutées après les réponses de base : donc plus rares
+  const fullRaw = (q) => q.raw + (window.ZEXTRA && ZEXTRA[q.text] ? ";" + ZEXTRA[q.text] : "");
+
+  // Questions de mots : toute réponse qui respecte la règle et existe dans le dictionnaire est acceptée
+  const WORD_RULES = {
+    "Cite un mot de la langue française comportant un « z »": (w) => w.includes("z"),
+    "Cite un mot de 3 lettres": (w, one) => one && w.length === 3,
+    "Cite un mot qui contient le mot « or »": (w) => w.includes("or") && w !== "or",
+    "Cite un mot qui se termine par « -ail » au singulier": (w, one) => one && w.endsWith("ail") && w !== "ail",
+    "Cite un mot qui s'écrit pareil dans les deux sens (palindrome)": (w, one) => one && w.length >= 3 && w === [...w].reverse().join(""),
+    "Cite un mot qui rime avec « maison »": (w, one, raw) => one && /(son|zon|çon)$/.test(raw.trim().toLowerCase()),
+    "Cite un mot de physique commençant par « électro »": (w, one) => one && w.startsWith("electro") && w.length > 7
+  };
+  function ruleMatch(q, input) {
+    const rule = WORD_RULES[q.text];
+    if (!rule) return null;
+    const toks = tokensOf(input);
+    const w = toks.join("");
+    if (!w || !rule(w, toks.length === 1, input)) return null;
+    initBank();
+    if (!toks.every((t) => t.length < 3 || inDict(t) || bankTokens.has(t))) return null;
+    const name = input.trim().charAt(0).toUpperCase() + input.trim().slice(1);
+    return { name, keys: [w], rarity: 0.96, share: 0.0008, rank: prep(q).answers.length, custom: true };
+  }
+  // Retrouve la réponse d'un choix enregistré (liste ou règle)
+  function answerOf(q, p) {
+    if (p.idx >= 0) return prep(q).answers[p.idx];
+    if (p.idx === -2) return { name: p.input.trim(), rarity: 0.96, share: 0.0008, rank: prep(q).answers.length, custom: true };
+    return null;
+  }
+
   function prep(q) {
     if (q.answers) return q;
     const seen = new Set();
     const answers = [];
-    for (const chunk of q.raw.split(";")) {
+    for (const chunk of fullRaw(q).split(";")) {
       const names = chunk.split("/").map((s) => s.trim()).filter(Boolean);
       if (!names.length) continue;
       const keys = names.map(norm).filter(Boolean);
@@ -131,6 +162,11 @@
     }
     return true;
   }
+  function initBank() {
+    if (bankTokens) return;
+    bankTokens = new Set();
+    for (const q of QUESTIONS) for (const t of tokensOf(fullRaw(q))) bankTokens.add(t);
+  }
   function exists(input) {
     const toks = tokensOf(input);
     const letters = toks.join("").replace(/[0-9]/g, "");
@@ -138,10 +174,7 @@
     if (!letters.length) return true; // un nombre ou une date
     if (letters.length < 2) return false;
     if (/(.)\1\1/.test(letters)) return false; // « aaaa », « zzz »
-    if (!bankTokens) {
-      bankTokens = new Set();
-      for (const q of QUESTIONS) for (const t of tokensOf(q.raw)) bankTokens.add(t);
-    }
+    initBank();
     return toks.every((t) => t.length < 3 || /^[0-9]+$/.test(t) || bankTokens.has(t) || inDict(t));
   }
   const tierOf = (c) => (c < 0.3 ? 0 : c < 0.55 ? 1 : c < 0.75 ? 2 : c < 0.9 ? 3 : 4);
@@ -309,7 +342,8 @@
     }
     game.answered = true;
     stopTimer();
-    const a = idx >= 0 ? q.answers[idx] : null;
+    let a = idx >= 0 ? q.answers[idx] : null;
+    if (!a && input != null) { const r = ruleMatch(q, input); if (r) { a = r; idx = -2; } }
     const m = mult();
     const gain = a ? Math.round(baseGain(a.rarity) * m) : 0;
     const pick = { q: q.id, input: input || "", idx, gain, mult: m, reason: reason || (a ? "ok" : "wrong") };
@@ -400,7 +434,7 @@
     $("end-next").textContent = nm ? "Prochain repère : " + nm[1] + " à " + Alt.fmt(nm[0]) + "." : "Tu as atteint le bord de l'Univers observable.";
     $("recap").innerHTML = g.picks.map((p, i) => {
       const q = prep(QBY[p.q]);
-      const a = p.idx >= 0 ? q.answers[p.idx] : null;
+      const a = answerOf(q, p);
       const label = a ? esc(a.name) + ` <small>${esc(q.text)} · ${TIERS[tierOf(a.rarity)].toLowerCase()}</small>` : `<span style="color:var(--bad)">${p.reason === "timeout" ? "Temps écoulé" : p.reason === "skip" ? "Passée" : "Refusée : " + esc(p.input)}</span><small>${esc(q.text)}</small>`;
       return `<li><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="a">${label}</span><span class="g ${p.gain ? "" : "zero"}">${p.gain ? "+" + Alt.fmt(p.gain) : "0"}</span></li>`;
     }).join("");
@@ -410,15 +444,16 @@
     show("end");
     Charts.flight($("flight-chart"), g.picks.map((p) => {
       const q = prep(QBY[p.q]);
-      return { gain: p.gain, tier: p.idx >= 0 ? tierOf(q.answers[p.idx].rarity) : -1 };
+      const a = answerOf(q, p);
+      return { gain: p.gain, tier: a ? tierOf(a.rarity) : -1 };
     }));
   }
 
   function shareText(g) {
     const sq = g.picks.map((p) => {
-      if (p.idx < 0) return "🟥";
+      if (p.idx < 0 && p.idx !== -2) return "🟥";
       const q = prep(QBY[p.q]);
-      return TIER_SQ[tierOf(q.answers[p.idx].rarity)];
+      return TIER_SQ[tierOf(answerOf(q, p).rarity)];
     });
     const lines = [];
     if (g.mode === "daily") lines.push("Zénith · Vol n°" + flightNumber(g.key));
@@ -538,5 +573,5 @@
   renderHome();
 
   // Accès pour les tests
-  window.Zenith = { norm, exists, phon, match: (id, s) => match(QBY[id], s), prep: (id) => prep(QBY[id]), QUESTIONS, dailyQuestions };
+  window.Zenith = { rule: (id, s) => ruleMatch(QBY[id], s), norm, exists, phon, match: (id, s) => match(QBY[id], s), prep: (id) => prep(QBY[id]), QUESTIONS, dailyQuestions };
 })();

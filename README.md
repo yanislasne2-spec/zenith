@@ -4,7 +4,7 @@ Quiz de culture générale : plus ta réponse est rare, plus ton avion monte.
 
 - **Vol du jour** : 7 questions tirées au sort selon la date, les mêmes pour tout le monde.
 - **Vol infini** : questions sans fin, 3 réservoirs, poussée ×1,15 par bonne réponse, ravitaillement tous les 10 bons tours.
-- 20 thèmes, 181 questions, environ 9 000 réponses acceptées. Aucune publicité, aucun compte, tout tourne dans le navigateur.
+- 20 thèmes, 181 questions, plus de 23 000 réponses acceptées. Aucune publicité, aucun compte, tout tourne dans le navigateur.
 
 ## Jouer en ligne
 
@@ -28,6 +28,18 @@ ZDATA.push({ id: "geo", name: "Géographie", color: "#3FA7D6", q: [
 - Les réponses sont séparées par `;` et classées **de la plus citée à la plus rare** : ce classement détermine l'altitude gagnée.
 - Les variantes acceptées d'une même réponse sont séparées par `/` (`Kiev/Kyiv`).
 - Accents, majuscules, articles, fautes de frappe et approximations phonétiques sont tolérés automatiquement (« Cntre Vale de Loir » est accepté pour « Centre-Val de Loire »).
+
+## Réponses supplémentaires
+
+Les fichiers `data/extra-*.js` ajoutent des réponses plus rares aux questions existantes, sans toucher aux listes de base :
+
+```js
+Object.assign(ZEXTRA, {
+  "Cite un stade de football célèbre": "Villa Park;Goodison Park;Elland Road"
+});
+```
+
+La clé est le texte exact de la question. Les questions de mots (mot avec un « z », mot de 3 lettres, palindrome, rime en « -son »…) acceptent en plus tout mot du dictionnaire qui respecte la règle.
 
 ## Mots qui n'existent pas
 
