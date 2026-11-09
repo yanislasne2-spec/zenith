@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zénith</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Zénith : le quiz où plus ta réponse est rare, plus ton avion monte.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Manrope:wght@400;600;700&family=Saira+Condensed:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+
+<div class="app">
+  <header class="topbar">
+    <button class="brand" id="brand" type="button" aria-label="Retour à l'accueil">
+      <span class="brand-name">Zénith</span>
+      <span class="brand-tag">plus ta réponse est rare, plus tu montes</span>
+    </button>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-help" type="button" aria-label="Comment jouer" title="Comment jouer">?</button>
+      <button class="icon-btn" id="btn-stats" type="button" aria-label="Statistiques" title="Statistiques">≡</button>
+      <button class="icon-btn" id="btn-settings" type="button" aria-label="Réglages" title="Réglages">⚙</button>
+    </div>
+  </header>
+
+  <div class="hud" id="hud" hidden>
+    <span class="chip" id="hud-mode">Vol du jour</span>
+    <span class="chip">ALT <b id="hud-alt">0 m</b></span>
+    <span class="chip" id="hud-progress">1 / 7</span>
+    <span class="chip" id="hud-fuel-wrap" hidden>Réservoirs <span class="fuel" id="hud-fuel"></span></span>
+    <span class="chip" id="hud-mult-wrap" hidden>Poussée <b id="hud-mult">×1,00</b></span>
+  </div>
+
+  <main class="panel-wrap">
+    <div class="panel" id="panel">
+
+      <!-- Accueil -->
+      <section class="screen" id="screen-home">
+        <div>
+          <p class="eyebrow" id="home-date">Vol n°1</p>
+          <h1>Plus ta réponse est rare, plus tu montes.</h1>
+        </div>
+        <p class="muted">Chaque question accepte des dizaines de bonnes réponses. Une seule réponse par question : la plus évidente te fait décoller de quelques mètres, la plus rare t'envoie dans la stratosphère.</p>
+        <div class="modes">
+          <button class="mode" id="mode-daily" type="button">
+            <span class="mode-title">Vol du jour</span>
+            <span class="mode-desc">7 questions, les mêmes pour tout le monde aujourd'hui.</span>
+            <span class="mode-meta" id="daily-meta">Prêt au décollage</span>
+          </button>
+          <button class="mode" id="mode-endless" type="button">
+            <span class="mode-title">Vol infini</span>
+            <span class="mode-desc">Questions sans fin, 3 réservoirs. Chaque bonne réponse augmente ta poussée.</span>
+            <span class="mode-meta" id="endless-meta">Record : 0 m</span>
+          </button>
+        </div>
+        <div class="screen" style="gap:8px">
+          <h3>Thèmes du vol infini</h3>
+          <div class="themes" id="theme-picker"></div>
+          <div class="form-foot">
+            <span class="small" id="theme-count"></span>
+            <button class="link-btn" id="themes-all" type="button">Tout sélectionner</button>
+          </div>
+        </div>
+        <div class="stats-line" id="home-stats"></div>
+      </section>
+
+      <!-- Question -->
+      <section class="screen" id="screen-question" hidden>
+        <div class="q-head">
+          <span class="q-theme" id="q-theme"><span class="dot"></span><span id="q-theme-name">Thème</span></span>
+          <span class="q-count" id="q-accepted">0 réponses acceptées</span>
+        </div>
+        <p class="q-text" id="q-text">Question</p>
+        <div class="timer" id="timer"><i id="timer-bar"></i></div>
+        <form class="answer-form" id="answer-form" autocomplete="off">
+          <label for="answer" class="eyebrow" style="position:absolute;left:-9999px">Ta réponse</label>
+          <input class="answer-input" id="answer" name="answer" type="text" placeholder="Ta réponse…" autocapitalize="sentences" spellcheck="false" enterkeyhint="send">
+          <button class="btn btn-primary" type="submit">Valider</button>
+        </form>
+        <div class="form-foot">
+          <span class="q-hint" id="q-hint">Vise une réponse que personne n'aura donnée.</span>
+          <button class="link-btn" id="btn-skip" type="button">Passer</button>
+        </div>
+      </section>
+
+      <!-- Révélation -->
+      <section class="screen" id="screen-reveal" hidden>
+        <div class="verdict" id="verdict">
+          <span class="eyebrow" id="verdict-q">Question</span>
+          <div class="verdict-line">
+            <span class="verdict-answer" id="verdict-answer">Réponse</span>
+            <span class="verdict-gain" id="verdict-gain">+0 m</span>
+          </div>
+          <div class="verdict-line">
+            <span id="verdict-tier" class="tier">Rare</span>
+            <span class="small" id="verdict-share"></span>
+          </div>
+        </div>
+        <div id="meter-block" class="screen" style="gap:4px">
+          <div class="meter"><i id="meter-pin" style="left:50%"></i></div>
+          <div class="meter-labels"><span>Banale</span><span>Pépite</span></div>
+        </div>
+        <div class="lists">
+          <div class="list">
+            <h3>Les plus citées</h3>
+            <ol id="list-top"></ol>
+          </div>
+          <div class="list">
+            <h3>Pépites possibles</h3>
+            <ol id="list-rare"></ol>
+          </div>
+        </div>
+        <p class="small" id="reveal-note"></p>
+        <button class="btn btn-primary" id="btn-next" type="button">Continuer</button>
+      </section>
+
+      <!-- Fin de vol -->
+      <section class="screen" id="screen-end" hidden>
+        <div>
+          <p class="eyebrow" id="end-title">Atterrissage</p>
+          <p class="end-alt" id="end-alt">0 m</p>
+          <p class="end-layer" id="end-layer">Troposphère</p>
+          <p class="muted" id="end-next"></p>
+        </div>
+        <ol class="recap" id="recap"></ol>
+        <div class="share-box" id="share-box"></div>
+        <div class="row">
+          <button class="btn" id="btn-copy" type="button">Copier le résultat</button>
+          <button class="btn btn-primary" id="btn-endless" type="button">Vol infini</button>
+        </div>
+        <button class="btn btn-ghost" id="btn-home" type="button">Retour à l'accueil</button>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- Comment jouer -->
+<div class="modal" id="modal-help" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div class="modal-head"><h2 id="help-title">Comment jouer</h2><button class="icon-btn" data-close type="button" aria-label="Fermer">✕</button></div>
+    <ol class="rules">
+      <li>Chaque question a des dizaines de bonnes réponses. Tu n'en donnes qu'<b>une</b>.</li>
+      <li>Une réponse banale fait monter ton avion de quelques centaines de mètres. Plus elle est rare, plus tu montes : jusqu'à <b>2 000 m</b> par question.</li>
+      <li>Une réponse fausse, un passage ou la fin du chrono : l'avion ne monte pas.</li>
+      <li><b>Vol du jour</b> : 7 questions, les mêmes pour tous, un nouveau vol chaque jour à minuit.</li>
+      <li><b>Vol infini</b> : questions sans fin. Tu as 3 réservoirs, chaque erreur en vide un. Chaque bonne réponse augmente la poussée de 15 %, et tous les 10 bons tours tu es ravitaillé en vol.</li>
+      <li>Les fautes de frappe légères et les accents oubliés sont tolérés.</li>
+    </ol>
+    <p class="small">La rareté est une estimation calculée à partir du classement des réponses de la plus citée à la plus rare. Tout se joue dans ton navigateur : aucune publicité, aucun compte.</p>
+  </div>
+</div>
+
+<!-- Statistiques -->
+<div class="modal" id="modal-stats" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="stats-title">
+    <div class="modal-head"><h2 id="stats-title">Carnet de vol</h2><button class="icon-btn" data-close type="button" aria-label="Fermer">✕</button></div>
+    <div class="grid-stats" id="stats-grid"></div>
+    <h3>Derniers vols du jour</h3>
+    <ol class="recap" id="stats-history"></ol>
+  </div>
+</div>
+
+<!-- Réglages -->
+<div class="modal" id="modal-settings" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="modal-head"><h2 id="settings-title">Réglages</h2><button class="icon-btn" data-close type="button" aria-label="Fermer">✕</button></div>
+    <label class="toggle" for="set-timer"><span>Chronomètre de 30 secondes</span><input type="checkbox" id="set-timer" checked></label>
+    <label class="toggle" for="set-motion"><span>Animations du ciel</span><input type="checkbox" id="set-motion" checked></label>
+    <div class="row">
+      <button class="btn" id="btn-reset" type="button">Effacer ma progression</button>
+    </div>
+    <p class="small" id="reset-note">Ta progression est enregistrée uniquement dans ce navigateur.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="data/01-geo-histoire.js"></script>
+<script src="data/02-sciences-animaux.js"></script>
+<script src="data/03-cinema-series.js"></script>
+<script src="data/04-musique-sport.js"></script>
+<script src="data/05-foot-jeuxvideo.js"></script>
+<script src="data/06-litterature-cuisine.js"></script>
+<script src="data/07-langue-mythologie.js"></script>
+<script src="data/08-art-marques.js"></script>
+<script src="data/09-espace-animation.js"></script>
+<script src="data/10-corps-quotidien.js"></script>
+<script src="data/dict.js"></script>
+<script src="sky.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
